@@ -1,0 +1,34 @@
+# Shared Postgres for the on-prem Linux server.
+# Ops-managed. Runs on the HOST Docker Engine (NOT inside a sandbox),
+# so every developer's sandbox can reach it over the LAN.
+#
+# Usage:
+#   POSTGRES_PASSWORD=<strong-secret> docker compose -f shared-db.compose.yaml up -d
+#
+# Then create one database + role per developer:
+#   CREATE ROLE alice LOGIN PASSWORD 'alice-strong-password' CONNECTION LIMIT 20;
+#   CREATE DATABASE alice_app OWNER alice;
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: shared-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"                 # reachable from developer sandboxes over the LAN
+    volumes:
+      - shared_pgdata:/var/lib/postgresql/data
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8g
+
+volumes:
+  shared_pgdata:

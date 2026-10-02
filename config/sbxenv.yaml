@@ -1,0 +1,37 @@
+# Per-project Docker Sandbox environment.
+# Place this file OUTSIDE the mounted workspace (e.g. my-app-env/sbxenv.yaml),
+# beside the project directory, then run: sbx env plan && sbx env run
+#
+# Docs: https://docs.docker.com/ai/sandboxes/configuration/environment-files/
+
+schemaVersion: "1"
+name: my-app
+agent: opencode
+workspace: ./app
+
+env:
+  NODE_ENV: development
+  # Remote shared DB on the on-prem Linux server.
+  # Replace host, password, role and database with your developer's values.
+  DATABASE_URL: postgres://alice:alice-strong-password@10.0.0.5:5432/alice_app
+
+sandboxOptions:
+  cpus: 4          # 0 = all host CPUs
+  memory: 8g
+  skills: readonly # off | readonly | readwrite
+
+ports:
+  - sandbox: 3000
+    host: 3000
+
+# Optional: extra repos mounted alongside the primary workspace
+# additionalWorkspaces:
+#   - path: ./shared-components
+#   - path: ./architecture-docs
+#     readOnly: true
+
+# Optional: host-side setup after the sandbox is created
+# lifecycle:
+#   postCreate:
+#     - command: ./scripts/seed-fixtures.sh
+#       workdir: app

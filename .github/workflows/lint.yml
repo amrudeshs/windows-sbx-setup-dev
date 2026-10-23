@@ -25,7 +25,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq shellcheck
-          shellcheck config/allowlist.sh
+          shellcheck config/allowlist.sh scripts/dind-smoke-test.sh
 
       - name: Compose file parses
         run: |

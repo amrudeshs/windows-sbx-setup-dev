@@ -39,6 +39,9 @@ developers have shell accounts on the server.
 
 - Store **model-provider keys** with `sbx secret`; the host-side proxy injects them into HTTP request
   headers, so the raw value never enters the VM.
+- The GitHub token for `git push` is also a sandbox secret (`sbx secret set github`). Use a
+  fine-grained token limited to the project repository: the agent can push whatever it allows
+  ([11](11-troubleshooting.md#git-push-fails-with-could-not-read-username)).
 - That mechanism is HTTP-only. A **database password cannot be protected this way**: Postgres does
   not use HTTP headers, so the credential has to exist inside the sandbox (an `env:` value or a
   file) and the agent can read it. Plan accordingly:

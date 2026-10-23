@@ -75,7 +75,8 @@ allow static.crates.io:443
 # --- Container images (docker compose build/pull inside the sandbox) ---------
 allow registry-1.docker.io:443
 allow auth.docker.io:443
-allow production.cloudflare.docker.com:443
+allow production.cloudfront.docker.com:443   # Docker Hub blob CDN (seen in practice)
+allow production.cloudflare.docker.com:443   # older Docker Hub blob CDN name
 allow ghcr.io:443
 
 # --- Source control ----------------------------------------------------------

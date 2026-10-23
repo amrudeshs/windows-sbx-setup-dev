@@ -23,8 +23,16 @@ are not repeated here.
   ```sh
   sbx secret set anthropic      # or openai / openrouter / google / xai
   ```
+- [ ] If the agent will push to GitHub, store a repo-scoped token for Git
+  ([11](11-troubleshooting.md#git-push-fails-with-could-not-read-username)):
+  ```sh
+  sbx secret set github --sandbox <sandbox-name> -t "<fine-grained-token>"
+  ```
 - [ ] Receive the DB credential and CA certificate from ops (never over chat or email in clear).
 - [ ] Clone the project onto the laptop.
+- [ ] Once the sandbox exists, confirm Docker works inside it (also catches TLS-inspection pull
+  failures early): `sh scripts/dind-smoke-test.sh` from a shell in the sandbox
+  ([05](05-docker-compose-and-shared-db.md#verified-docker-inside-a-sandbox)).
 - [ ] Apply the network policy, then test the DB path ([11](11-troubleshooting.md)):
   ```sh
   sh config/allowlist.sh 10.0.0.5 anthropic

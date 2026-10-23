@@ -89,6 +89,81 @@ sbx settings set sandbox.disk.dockerVolume 30g   # applies to newly created sand
 - Pin one `sbx` version for the team and upgrade deliberately; re-check this repo's docs against
   [docs.docker.com/ai/sandboxes](https://docs.docker.com/ai/sandboxes/) when you do.
 
+## `docker pull` fails with `x509: certificate signed by unknown authority`
+
+```
+failed to copy: httpReadSeeker: failed open: ... Get "https://production.cloudfront.docker.com/...":
+tls: failed to verify certificate: x509: certificate signed by unknown authority
+```
+
+The sandbox's Docker daemon can reach the registry (policy allows it), but the network does **TLS
+inspection** (for example Zscaler) and re-signs HTTPS with a corporate root CA that the daemon
+inside the sandbox doesn't trust. It shows up on the first `docker compose up`/`pull` and also breaks
+`npm`, `pip` and `curl` in the sandbox. Check with `curl -v https://registry.npmjs.org/` inside the
+sandbox: the issuer in the certificate is the corporate CA, not a public one.
+
+Seen in testing (a sandbox behind Zscaler):
+
+- Docker commands that need no registry work fine: `docker import`, `docker run` of a locally built
+  image, user-defined networks with name resolution.
+- Putting the CA in `/etc/docker/certs.d/<host>/ca.crt` for the registry and CDN hosts did **not**
+  help; the CDN redirect doesn't use it.
+- Pulling the image outside the daemon with `skopeo`, trusting the CA only for that command
+  (`SSL_CERT_FILE=<bundle-with-corporate-ca>`), then loading it with
+  `skopeo copy docker://docker.io/library/hello-world docker-daemon:hello-world:latest`, worked
+  and the image ran. That is a workaround, not a fix.
+
+The real fix is to make the sandbox trust the corporate root CA (export it from the Windows
+certificate store or ask IT, as a `.cer`/`.pem` file) system-wide and restart the sandbox's Docker
+daemon. Ideally the CA is baked into a team **template or kit** so every sandbox starts with it
+([04](04-environments-kits-and-templates.md)).
+
+> **Unverified:** the system-wide trust + daemon-restart route and the template/kit route were not
+> tested. In the test sandbox the daemon runs as a bare `dockerd` process without systemd, so a
+> restart needs care. Test on a throwaway sandbox before rolling out, and add the CA (a public
+> certificate, not a secret) to an ignored path rather than committing it to this repo.
+
+Also make sure the blob CDN is allowed: [`allowlist.sh`](config/allowlist.sh) allows
+`production.cloudfront.docker.com` and the older `production.cloudflare.docker.com`.
+
+## `git push` fails with `could not read Username`
+
+```
+fatal: could not read Username for 'https://github.com': No such device or address
+```
+
+Git inside a sandbox has no credentials of its own. The sandbox proxy injects a GitHub token into
+HTTPS Git traffic, but only after the developer has stored one as a **sandbox secret on their host**.
+This error means that hasn't been done yet. It is not a network-policy problem (see
+[a request is blocked](#a-request-is-blocked-http-403) for that), and `gh auth login` inside the
+sandbox is neither needed nor useful: `gh auth status` showing "not logged in" there is expected.
+
+Run this **on the host** (the Windows laptop, not inside the sandbox):
+
+```sh
+# existing sandbox: takes effect immediately
+sbx secret set github --sandbox <sandbox-name> -t "<token>"
+
+# or for all future sandboxes: needs the sandbox to be recreated
+sbx secret set github -t "<token>"
+```
+
+- **`<sandbox-name>`** is the value of `$SANDBOX_NAME` (also `hostname`) *inside* the sandbox. Don't
+  guess it from the folder, branch or project name: a wrong name silently sets the secret on a
+  sandbox that doesn't exist.
+- **`<token>`**: `$(gh auth token)` (bash) or `(gh auth token)` (PowerShell) reuses your host
+  `gh` login, which is convenient but usually carries broad scopes. Prefer a **fine-grained personal
+  access token limited to the one repository** with only Contents and Pull requests read/write.
+  The agent can push anything the token allows, and a prompt-injected agent can push it to the wrong
+  place ([09](09-security-and-guardrails.md#prompt-injection-and-exfiltration)).
+- The token stays on the host; the proxy adds it to requests for allowed GitHub hosts
+  ([`allowlist.sh`](config/allowlist.sh) already allows them), so it is not readable inside the VM.
+- Then push from inside the sandbox as usual: `git push -u origin <branch>`. Don't ask developers to
+  push from the host.
+- In [clone mode](03-workspaces.md#clone-mode-read-only-source--private-clone) commits exist only in
+  the sandbox until pushed, or fetched on the host with `git fetch sandbox-<sandbox-name>` while the
+  sandbox is running. Unpushed work is lost if the sandbox is removed.
+
 ## Published ports are not reachable from Windows
 
 The service must listen on `0.0.0.0` inside the sandbox (not `127.0.0.1`) and the port must be

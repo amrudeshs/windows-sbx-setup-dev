@@ -4,6 +4,9 @@ The final proposed setup for a team of **Windows developers** who build on an **
 server** with a **shared database**, each running their own **Docker Compose** stack in an isolated
 sandbox. This file is the entry point; the numbered docs explain how it works.
 
+> **New here?** Start with the one-page [overview.html](overview.html) (approach, benefits, simple
+> setup), then come back for the details.
+
 > **Source of truth:** [docs.docker.com/ai/sandboxes](https://docs.docker.com/ai/sandboxes/)
 > (captured October 2026). `sbx` moves fast — v3 kits need `sbx` ≥ 0.45. Verify against the live docs
 > before rollout.

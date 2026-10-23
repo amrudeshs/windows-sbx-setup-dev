@@ -116,11 +116,9 @@ sbx login
 Requires a Docker account. On headless Linux there is no desktop keyring, so secrets fall back to a
 `0700` file under `~/.config/com.docker.sandboxes`; the CLI prints a notice.
 
-> **Decide before rollout:** this doc and [02](02-sandboxes-explained.md) say each developer signs in
-> with their **own** Docker account. Check with your IT/legal owners whether personal accounts are
-> acceptable for company use, or whether you need a Docker organization with SSO (the paid governance
-> tier in [09](09-security-and-guardrails.md#governance-optional-paid) is the route to enforced
-> sign-in).
+Each developer signs in with a Docker account created with their **company email address**; no shared
+or personal accounts. (If you later want sign-in enforced centrally, that is part of the paid
+governance tier in [09](09-security-and-guardrails.md#governance-optional-paid).)
 
 ## First-run network preset
 

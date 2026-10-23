@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check relative links and heading anchors in the repo's Markdown files.
+"""Check relative links and heading anchors in the repo's Markdown and HTML files.
 
 Usage: python3 scripts/check-links.py
 Exits non-zero and lists every broken link. External (http/https/mailto) links are not fetched.
@@ -10,6 +10,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 LINK = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)\)")
+HREF = re.compile(r'href="([^"]+)"')
 FENCE = re.compile(r"^\s*```")
 
 
@@ -37,17 +38,19 @@ def anchors(path: pathlib.Path) -> set:
 
 def main() -> int:
     errors = []
-    md_files = sorted(p for p in ROOT.rglob("*.md") if ".git" not in p.parts)
+    md_files = sorted(
+        p for p in list(ROOT.rglob("*.md")) + list(ROOT.rglob("*.html")) if ".git" not in p.parts
+    )
     cache = {}
     for md in md_files:
         in_fence = False
         for lineno, line in enumerate(md.read_text(encoding="utf-8").splitlines(), 1):
-            if FENCE.match(line):
+            if md.suffix == ".md" and FENCE.match(line):
                 in_fence = not in_fence
                 continue
             if in_fence:
                 continue
-            for target in LINK.findall(line):
+            for target in LINK.findall(line) + HREF.findall(line):
                 if re.match(r"^[a-z][a-z0-9+.-]*:", target):
                     continue
                 path_part, _, frag = target.partition("#")

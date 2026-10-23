@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Isolated Dev Sandboxes Overview</title>
+<style>
+  :root {
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --text: #1b2330;
+    --muted: #5a667a;
+    --border: #d9dee7;
+    --accent: #1f5fd1;
+    --accent-soft: #e6eefc;
+    --ok: #17794a;
+    --warn: #8a5a00;
+    --warn-soft: #fff4dc;
+    --code-bg: #eef1f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11151c;
+      --surface: #1a212c;
+      --text: #e6eaf1;
+      --muted: #9aa6ba;
+      --border: #2d3746;
+      --accent: #6ea3ff;
+      --accent-soft: #1c2a44;
+      --ok: #4cc28a;
+      --warn: #f0b955;
+      --warn-soft: #3a2f14;
+      --code-bg: #232c3a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 16px 64px; }
+  header { padding: 40px 0 8px; }
+  h1 { font-size: clamp(1.7rem, 4.5vw, 2.4rem); line-height: 1.2; margin: 0 0 12px; }
+  h2 { font-size: 1.35rem; margin: 48px 0 12px; line-height: 1.3; }
+  h3 { font-size: 1.05rem; margin: 0 0 6px; }
+  p { margin: 0 0 12px; }
+  .lede { font-size: 1.1rem; color: var(--muted); max-width: 62ch; }
+  a { color: var(--accent); text-underline-offset: 2px; }
+  code {
+    background: var(--code-bg); padding: 1px 6px; border-radius: 4px;
+    font: 0.88em ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px 14px; overflow-x: auto; margin: 8px 0 12px;
+    font: 0.86rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+  }
+  .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+  .num {
+    display: inline-block; min-width: 1.6em; height: 1.6em; line-height: 1.6em; text-align: center;
+    background: var(--accent-soft); color: var(--accent); border-radius: 999px; font-weight: 700;
+    font-size: 0.85rem; margin-right: 6px;
+  }
+  .diagram {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px;
+  }
+  .diagram svg { width: 100%; height: auto; display: block; }
+  .diagram .box { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+  .diagram .vm { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+  .diagram .srv { fill: var(--surface); stroke: var(--ok); stroke-width: 1.5; }
+  .diagram text { fill: var(--text); font: 13px system-ui, sans-serif; }
+  .diagram .small { fill: var(--muted); font-size: 11.5px; }
+  .diagram .title { font-weight: 700; font-size: 13px; }
+  .diagram .link { stroke: var(--accent); stroke-width: 2; fill: none; }
+  .diagram .arrow { fill: var(--accent); }
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+  .step h3 { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .who { font-size: 0.8rem; color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .more { font-size: 0.92rem; color: var(--muted); margin: 0; }
+  .note {
+    background: var(--warn-soft); border: 1px solid var(--border); border-left: 4px solid var(--warn);
+    border-radius: 8px; padding: 12px 14px; margin: 12px 0;
+  }
+  .note strong { color: var(--warn); }
+  ul { padding-left: 1.2em; margin: 0 0 12px; }
+  li { margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.95rem; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden; display: block; overflow-x: auto; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-soft); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Isolated dev sandboxes for a Windows team</h1>
+  <p class="lede">Each developer runs their own AI coding agent and Docker Compose stack inside a private
+  Linux sandbox on their own laptop. A single shared Postgres on the on-prem Linux server holds everyone's
+  data. Nobody can break anyone else's work, or the server.</p>
+</header>
+
+<h2>The goals</h2>
+<div class="grid">
+  <div class="card"><h3><span class="num">1</span>Windows team, Linux server</h3>
+    <p>Developers work from Windows laptops; builds and containers run on real Linux.</p></div>
+  <div class="card"><h3><span class="num">2</span>One shared database</h3>
+    <p>A common Postgres container on the on-prem server, with a separate database per developer.</p></div>
+  <div class="card"><h3><span class="num">3</span>Independent Compose stacks</h3>
+    <p>Everyone runs their own <code>docker compose</code> without port, image or volume clashes.</p></div>
+  <div class="card"><h3><span class="num">4</span>No one breaks the machine</h3>
+    <p>A mistake or a misbehaving agent stays inside one developer's sandbox.</p></div>
+  <div class="card"><h3><span class="num">5</span>No WSL2</h3>
+    <p>Sandboxes are lightweight Linux virtual machines managed by Docker's <code>sbx</code> tool.</p></div>
+</div>
+
+<h2>The approach</h2>
+<p>Install <code>sbx</code> (Docker Sandboxes) on each Windows 11 laptop. It starts a small Linux virtual
+machine per project, with its <strong>own kernel and its own Docker daemon</strong>. The agent and the
+developer's Compose stack run inside it. Outbound network traffic is denied by default and goes through
+a proxy, so the sandbox can only reach what the team explicitly allows, which includes the shared
+database on the server.</p>
+
+<div class="diagram" role="img"
+     aria-label="Two developer laptops, each containing a sandbox with its own Docker daemon, Compose stack and agent, connect over the LAN with TLS to a shared Postgres 18 on the on-prem Linux server.">
+<svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" class="arrow"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="10" y="10" width="330" height="150" rx="10"/>
+  <text class="title" x="26" y="34">Developer laptop A (Windows 11)</text>
+  <rect class="vm" x="26" y="48" width="298" height="98" rx="8"/>
+  <text class="title" x="40" y="70">Linux sandbox (microVM)</text>
+  <text class="small" x="40" y="92">• agent (OpenCode)</text>
+  <text class="small" x="40" y="110">• own Docker daemon + Compose stack</text>
+  <text class="small" x="40" y="128">• project files mounted from the laptop</text>
+
+  <rect class="box" x="10" y="172" width="330" height="150" rx="10"/>
+  <text class="title" x="26" y="196">Developer laptop B (Windows 11)</text>
+  <rect class="vm" x="26" y="210" width="298" height="98" rx="8"/>
+  <text class="title" x="40" y="232">Linux sandbox (microVM)</text>
+  <text class="small" x="40" y="254">• agent (OpenCode)</text>
+  <text class="small" x="40" y="272">• own Docker daemon + Compose stack</text>
+  <text class="small" x="40" y="290">• project files mounted from the laptop</text>
+
+  <rect class="srv" x="470" y="96" width="280" height="138" rx="10"/>
+  <text class="title" x="486" y="122">On-prem Linux server</text>
+  <text class="small" x="486" y="146">• Postgres 18 in Docker (host engine)</text>
+  <text class="small" x="486" y="164">• one database + role per developer</text>
+  <text class="small" x="486" y="182">• TLS, only the developer subnet</text>
+  <text class="small" x="486" y="200">• no developer accounts on the server</text>
+
+  <path class="link" d="M340 97 C 410 97, 410 140, 466 150" marker-end="url(#arr)"/>
+  <path class="link" d="M340 259 C 410 259, 410 190, 466 180" marker-end="url(#arr)"/>
+  <text class="small" x="372" y="190" text-anchor="middle">LAN, port 5432</text>
+</svg>
+</div>
+<p class="more" style="margin-top:10px">Detail: <a href="01-architecture.md">architecture</a> ·
+<a href="02-sandboxes-explained.md">what a sandbox is</a></p>
+
+<h2>Benefits</h2>
+<ul>
+  <li><strong>Strong isolation.</strong> Each sandbox is its own virtual machine with its own Docker daemon,
+    so there is no shared Docker socket and no way to reach another developer's containers.</li>
+  <li><strong>Safe to give an agent real autonomy.</strong> The agent can install packages and run containers
+    inside its sandbox without touching the laptop or the server.</li>
+  <li><strong>Independent by default.</strong> Two developers can run the same Compose project with no
+    port, image or volume collisions.</li>
+  <li><strong>Linux parity.</strong> The code builds and runs on Linux, as it will in deployment, even from a
+    Windows laptop.</li>
+  <li><strong>Reviewable network access.</strong> One allowlist script is the whole list of hosts a sandbox
+    can reach.</li>
+  <li><strong>One shared failure domain, well fenced.</strong> The only shared piece is Postgres, with a
+    separate database and role per developer, TLS, connection limits and backups.</li>
+  <li><strong>Low cost.</strong> The <code>sbx</code> tool and local compute are free; only central
+    governance is a paid tier.</li>
+</ul>
+
+<h2>Simple setup</h2>
+<p>Four steps cover the goals above. The pages linked under each step have the full instructions and the
+options.</p>
+
+<div class="step">
+  <h3><span class="num">1</span>Enable and install on each laptop<span class="who">IT once, then the developer</span></h3>
+  <p>IT turns on one Windows feature (needs admin and a reboot; no WSL2). The developer then installs
+  <code>sbx</code> without admin and signs in with a Docker account created with their company email.</p>
+<pre><code># IT, elevated PowerShell, once per laptop
+Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform -All
+
+# developer
+winget install -h Docker.sbx
+sbx login
+sbx secret set anthropic      # model-provider key, kept out of the sandbox</code></pre>
+  <p class="more">Details: <a href="07-windows-and-admin.md">Windows and admin</a> ·
+  <a href="10-runbook-and-examples.md#a-developer-laptop-onboarding-checklist-windows-11">onboarding checklist</a></p>
+</div>
+
+<div class="step">
+  <h3><span class="num">2</span>Start the shared database<span class="who">ops, once</span></h3>
+  <p>Run Postgres 18 on the server with TLS and a subnet-restricted access file, apply the baseline hardening,
+  then create one isolated database per developer.</p>
+<pre><code>cd config
+export POSTGRES_PASSWORD=&lt;strong-secret&gt; DB_BIND_ADDR=&lt;server-lan-ip&gt;
+docker compose -f shared-db.compose.yaml up -d
+docker exec -i shared-postgres psql -U postgres -v ON_ERROR_STOP=1 &lt; db-baseline.sql
+
+# per developer
+docker exec -i shared-postgres psql -U postgres -v ON_ERROR_STOP=1 \
+  -v dev=alice -v pw="$(openssl rand -base64 24)" &lt; provision-developer.sql</code></pre>
+  <p class="more">Details (certificates, firewall, backups, offboarding):
+  <a href="10-runbook-and-examples.md#b-shared-postgres-on-the-linux-server">runbook, section B</a> ·
+  <a href="05-docker-compose-and-shared-db.md">Compose and the shared DB</a></p>
+</div>
+
+<div class="step">
+  <h3><span class="num">3</span>Allow only what the project needs<span class="who">developer</span></h3>
+  <p>Choose the <strong>Locked Down</strong> network preset on first run, then allow the database, your
+  model provider, package registries and Git.</p>
+<pre><code># from the repo root
+sh config/allowlist.sh &lt;db-host&gt; anthropic</code></pre>
+  <p class="more">Details: <a href="06-networking-and-policy.md">networking and policy</a></p>
+</div>
+
+<div class="step">
+  <h3><span class="num">4</span>Create the project environment and start<span class="who">developer</span></h3>
+  <p>Copy <code>config/sbxenv.yaml</code> beside the project (not inside it), fill in the project name and
+  database URL, then create and attach.</p>
+<pre><code>sbx env plan      # preview
+sbx env run       # create the sandbox and attach the agent</code></pre>
+  <p>Work on the project folder from Windows as usual; the sandbox sees the same files. Inside the sandbox, run
+  <code>docker compose up</code> against the shared database.</p>
+  <p class="more">Details: <a href="04-environments-kits-and-templates.md">environments and kits</a> ·
+  <a href="03-workspaces.md">workspaces</a> · <a href="README.md#3-per-project-copy-the-environment-file">README step 3</a></p>
+</div>
+
+<h2>What to know before relying on it</h2>
+<div class="note">
+  <strong>Still to be tested.</strong> The path from a sandbox to the Postgres server (raw TCP on port 5432
+  through the sandbox proxy) is the design's main assumption and has not been verified yet. The
+  <a href="11-troubleshooting.md#the-database-is-unreachable">troubleshooting steps</a> are the test.
+</div>
+<ul>
+  <li><strong>One-time admin is needed.</strong> No WSL2, but each laptop needs the Windows Hypervisor Platform
+    feature enabled once.</li>
+  <li><strong>The agent can see its database password.</strong> A Postgres credential cannot be hidden from the
+    sandbox, so each developer gets a low-privilege role that can only touch their own database.</li>
+  <li><strong>Agents can be steered by what they read.</strong> Keep the allowlist short and use clone mode for
+    code you do not trust. See <a href="09-security-and-guardrails.md#prompt-injection-and-exfiltration">security</a>.</li>
+  <li><strong>There is overhead.</strong> Keep dependencies and build output off the mounted folder. The
+    <a href="08-performance.md">performance doc</a> has a benchmark to run on one real project first.</li>
+  <li><strong><code>sbx</code> moves fast.</strong> Its environment-file feature is experimental; pin one version for the
+    team and recheck the docs when you upgrade.</li>
+</ul>
+
+<h2>Where to read next</h2>
+<table>
+  <thead><tr><th>If you want to…</th><th>Read</th></tr></thead>
+  <tbody>
+    <tr><td>Follow the quick start end to end</td><td><a href="README.md">README</a></td></tr>
+    <tr><td>Understand the design and its alternatives</td><td><a href="01-architecture.md">01 Architecture</a></td></tr>
+    <tr><td>Set up Windows laptops and admin</td><td><a href="07-windows-and-admin.md">07 Windows and admin</a></td></tr>
+    <tr><td>Run and secure the shared database</td><td><a href="10-runbook-and-examples.md">10 Runbook</a> · <a href="09-security-and-guardrails.md">09 Security</a></td></tr>
+    <tr><td>Fix a blocked request or an unreachable DB</td><td><a href="11-troubleshooting.md">11 Troubleshooting</a></td></tr>
+  </tbody>
+</table>
+
+<footer>
+  Based on Docker's <a href="https://docs.docker.com/ai/sandboxes/">Sandboxes documentation</a>. Verify against the
+  live docs before rollout.
+</footer>
+
+</div>
+</body>
+</html>

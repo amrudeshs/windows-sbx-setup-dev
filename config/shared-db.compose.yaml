@@ -16,8 +16,11 @@
 
 services:
   postgres:
-    # Pin the full minor version in your fork (e.g. postgres:16.x) and upgrade deliberately.
-    image: postgres:16
+    # Baseline is Postgres 18; the right version depends on the project, so change the major here
+    # to match what your projects deploy with (keep the volume mount below in step: it is
+    # /var/lib/postgresql for 18+, but /var/lib/postgresql/data for 17 and older).
+    # Pin the full minor version in your fork and upgrade deliberately.
+    image: postgres:18
     container_name: shared-postgres
     restart: unless-stopped
     environment:
@@ -26,7 +29,8 @@ services:
     ports:
       - "${DB_BIND_ADDR:?set DB_BIND_ADDR to the server LAN IP}:5432:5432"
     volumes:
-      - shared_pgdata:/var/lib/postgresql/data
+      # Postgres 18+ images keep data in a version-specific subdirectory of /var/lib/postgresql
+      - shared_pgdata:/var/lib/postgresql
       - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ./certs/server.crt:/certs/server.crt:ro
       - ./certs/server.key:/certs/server.key:ro

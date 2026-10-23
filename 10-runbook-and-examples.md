@@ -17,7 +17,7 @@ are not repeated here.
   ```powershell
   winget install -h Docker.sbx
   ```
-- [ ] `sbx login` (see the Docker account question in [07](07-windows-and-admin.md#sign-in)).
+- [ ] `sbx login` with a Docker account created using the developer's **company email** ([07](07-windows-and-admin.md#sign-in)).
 - [ ] First run: choose the **Locked Down** network preset.
 - [ ] Store the model-provider credential:
   ```sh
@@ -35,6 +35,11 @@ are not repeated here.
 
 Ops-managed, on the **host Docker Engine** — never inside a sandbox (sandboxes cannot reach each
 other).
+
+The baseline is **Postgres 18** (`postgres:18` in the compose file). The right major version depends on
+what each project deploys with, so change the image to match. Postgres 18+ images keep data under
+`/var/lib/postgresql`, while 17 and older use `/var/lib/postgresql/data`; the compose file's volume
+mount must follow the version you pick. Data volumes are not interchangeable between majors.
 
 ### One-time server prerequisites
 

@@ -25,7 +25,8 @@ env:
 sandboxOptions:
   cpus: 4          # 0 = all host CPUs; do not leave at 0 on a shared laptop
   memory: 8g       # budget: (sum of sandbox memory) + ~4g for Windows must fit in laptop RAM
-  skills: off      # off | readonly | readwrite. readonly is fine if you rely on shared skills.
+  skills: "off"    # off | readonly | readwrite. Quoted: bare off is a YAML 1.1 boolean.
+                   # readonly is fine if you rely on shared skills.
 
 # Docker storage inside the sandbox defaults to 10g. Multi-service Compose stacks outgrow it;
 # set the larger default once per laptop (it is a setting, not an environment-file field):

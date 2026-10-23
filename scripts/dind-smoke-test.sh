@@ -18,6 +18,8 @@ PROJECT="dindtest$SUFFIX"
 WORKDIR="$(mktemp -d)"
 FAILED=0
 
+# Invoked through the EXIT/INT/TERM trap below, which shellcheck does not follow.
+# shellcheck disable=SC2329
 cleanup() {
   docker rm -f "dindtest-a-$SUFFIX" >/dev/null 2>&1
   docker network rm "$NET" >/dev/null 2>&1

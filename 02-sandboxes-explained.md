@@ -78,6 +78,18 @@ You can start from any Linux image if it meets the contract:
   across stop/start**.
 - `sbx rm` deletes the sandbox and all of its contents.
 - A **directly mounted workspace lives on the host** and is not deleted with the sandbox.
+- In [clone mode](03-workspaces.md#clone-mode-read-only-source--private-clone) the working tree is a
+  clone **inside** the VM: commits survive stop/start but are lost on `sbx rm` unless they were
+  pushed, or fetched on the host with `git fetch sandbox-<name>` (which only works while the sandbox
+  is running).
+- The agent's **conversation history lives inside the sandbox** (in the agent's home directory), so
+  it survives stop/start and can be resumed, and is deleted with `sbx rm`. See
+  [10 §G](10-runbook-and-examples.md#g-resuming-work-in-an-existing-sandbox).
+- Tools installed inside (apt packages, npm installs, MCP servers registered in the agent's user
+  config) persist with the sandbox's filesystem. Temporary directories such as `/tmp` should be
+  treated as disposable.
+- A **new** agent session starts with no memory of earlier ones unless you resume. Keep durable
+  decisions in the repo (these docs), not only in a conversation.
 
 ## Comparison to alternatives
 

@@ -198,6 +198,58 @@ sbx template ls && sbx template rm <name>
 
 ---
 
+## G. Resuming work in an existing sandbox
+
+A sandbox keeps its filesystem and the agent's conversation history across stop/start, so you can
+close the session and continue later. Reattach to the **existing** sandbox by name; don't create a
+new one.
+
+```sh
+sbx ls                                    # find the sandbox and check its state
+sbx run --name <sandbox-name>             # reattach (starts it if stopped)
+```
+
+`<sandbox-name>` is `$SANDBOX_NAME` inside the sandbox (also `hostname`). Don't pass `--clone` when
+reattaching: clone mode is fixed at creation, and the flag does nothing useful on an existing
+sandbox (on some versions it may create a second sandbox). `--publish` is likewise ignored on
+reattach; use `sbx ports`.
+
+Then resume the conversation, using whichever is convenient (Claude Code shown; other agents have
+their own equivalent):
+
+- inside the agent, type `/resume` and pick the session; or
+- from a shell in the sandbox, `claude --continue` (most recent) or `claude --resume` (choose one).
+  Start it from the **same project directory** as before: sessions are listed per project folder.
+
+```sh
+sbx exec -it <sandbox-name> bash          # alternative: open a shell first
+cd <project-directory> && claude --continue
+```
+
+> **Unverified:** whether `sbx run` can pass agent flags straight through (for example
+> `sbx run --name <name> -- --continue`). Check `sbx run --help` on your installed version; the
+> `/resume` route doesn't depend on it.
+
+### What survives, what doesn't
+
+| Survives stop/start | Lost on `sbx rm` | Never in the sandbox |
+| --- | --- | --- |
+| Files, installed packages, Docker images/volumes, branches and commits in the clone, agent conversation history, registered MCP servers | All of those, including unpushed commits in a clone-mode sandbox | Files on the host outside the mounted workspace; secrets held by the host proxy |
+
+Before removing a clone-mode sandbox, get your commits out:
+
+```sh
+# on the host, while the sandbox is running
+git fetch sandbox-<sandbox-name> <branch>
+# or, from inside the sandbox, if the GitHub token is stored (see 11)
+git push -u origin <branch>
+```
+
+Pushing needs the one-off GitHub secret described in
+[11](11-troubleshooting.md#git-push-fails-with-could-not-read-username).
+
+---
+
 ## Appendix: local model servers (Ollama)
 
 If a developer runs a model server **on the same machine as `sbx`** (e.g. Ollama on the laptop), that

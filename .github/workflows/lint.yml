@@ -1,8 +1,10 @@
 name: lint
 
 on:
+  # Runs when commits land on main: direct pushes and merged pull requests (a merge is a push).
+  # It does not run for pushes to other branches or while a pull request is open.
   push:
-  pull_request:
+    branches: [main]
 
 permissions:
   contents: read

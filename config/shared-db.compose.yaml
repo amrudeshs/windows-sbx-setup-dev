@@ -2,28 +2,61 @@
 # Ops-managed. Runs on the HOST Docker Engine (NOT inside a sandbox),
 # so every developer's sandbox can reach it over the LAN.
 #
-# Usage:
-#   POSTGRES_PASSWORD=<strong-secret> docker compose -f shared-db.compose.yaml up -d
+# One-time prerequisites (see ../10-runbook-and-examples.md, section B):
+#   1. TLS material in ./certs: server.crt, server.key (owner uid 999, mode 0600)
+#   2. ./postgres/pg_hba.conf edited to your developer subnet
+#   3. Host firewall limits 5432 to that subnet (Docker-published ports bypass ufw INPUT rules)
 #
-# Then create one database + role per developer:
-#   CREATE ROLE alice LOGIN PASSWORD 'alice-strong-password' CONNECTION LIMIT 20;
-#   CREATE DATABASE alice_app OWNER alice;
+# Usage:
+#   export POSTGRES_PASSWORD=<strong-secret>      # superuser, ops only, never handed to developers
+#   export DB_BIND_ADDR=<server-lan-ip>           # NOT 0.0.0.0
+#   docker compose -f shared-db.compose.yaml up -d
+#
+# Then run db-baseline.sql once and provision-developer.sql per developer.
 
 services:
   postgres:
-    image: postgres:16
+    # Baseline is Postgres 18; the right version depends on the project, so change the major here
+    # to match what your projects deploy with (keep the volume mount below in step: it is
+    # /var/lib/postgresql for 18+, but /var/lib/postgresql/data for 17 and older).
+    # Pin the full minor version in your fork and upgrade deliberately.
+    image: postgres:18
     container_name: shared-postgres
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
     ports:
-      - "5432:5432"                 # reachable from developer sandboxes over the LAN
+      - "${DB_BIND_ADDR:?set DB_BIND_ADDR to the server LAN IP}:5432:5432"
     volumes:
-      - shared_pgdata:/var/lib/postgresql/data
+      # Postgres 18+ images keep data in a version-specific subdirectory of /var/lib/postgresql
+      - shared_pgdata:/var/lib/postgresql
+      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./certs/server.crt:/certs/server.crt:ro
+      - ./certs/server.key:/certs/server.key:ro
     command:
       - postgres
       - -c
       - max_connections=200
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/certs/server.crt
+      - -c
+      - ssl_key_file=/certs/server.key
+      - -c
+      - password_encryption=scram-sha-256
+      - -c
+      - log_connections=on
+      - -c
+      - log_disconnections=on
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:

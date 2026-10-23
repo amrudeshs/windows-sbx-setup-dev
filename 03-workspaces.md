@@ -58,6 +58,16 @@ sbx run --clone opencode ~/my-project
 Use clone mode when running several agents on one repo, or when you don't want the agent editing
 your working tree directly.
 
+**Recommendation:** use clone mode whenever the agent works on code or dependencies you don't fully
+trust (third-party repos, unreviewed branches, content that may carry prompt injection — see
+[09](09-security-and-guardrails.md#prompt-injection-and-exfiltration)). Direct mount puts the agent's
+edits, including Git hooks and build scripts, straight into your working tree.
+
+> **Unverified:** the environment-file field list in [04](04-environments-kits-and-templates.md)
+> has no clone option, so clone mode is shown here with `sbx run --clone`. Check
+> `sbx env --help` on your installed version before standardising on `sbxenv.yaml` for clone-mode
+> sandboxes.
+
 ## How sandboxes are identified: folder vs name
 
 Both matter, and this is a common source of confusion:

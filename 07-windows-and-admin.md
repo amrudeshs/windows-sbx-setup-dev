@@ -62,7 +62,19 @@ Local sandboxes are not possible. Options:
 2. **`sbx` on the Linux server** — keep all elevated work on the server, done once by ops via KVM.
    See [10-runbook-and-examples.md](10-runbook-and-examples.md).
 
-## Linux server prerequisites (for server-hosted `sbx`, or for the shared DB host)
+## Shared-DB host prerequisites (the recommended design)
+
+The server only runs Postgres under the host Docker Engine:
+
+- A Linux host with **Docker Engine** and Compose v2 (Ubuntu 24.04+ recommended).
+- **No KVM, no `sbx`, and no developer accounts** are needed.
+- TLS certificates for Postgres and a host firewall limiting port 5432 to the developer subnet
+  (Docker-published ports bypass `ufw`'s INPUT rules, so also bind to the LAN IP, as
+  `shared-db.compose.yaml` does). See [10 §B](10-runbook-and-examples.md#b-shared-postgres-on-the-linux-server).
+
+## Server-hosted `sbx` prerequisites (alternative design only)
+
+Only if you choose [server-hosted `sbx`](01-architecture.md#the-alternatives):
 
 - **Ubuntu 24.04+**, 64-bit Intel/AMD or Arm.
 - **KVM** available and enabled; user in the `kvm` group:
@@ -76,19 +88,24 @@ Local sandboxes are not possible. Options:
 ### Install `sbx`
 
 ```sh
-# macOS
-brew trust docker/tap && brew install docker/tap/sbx
-
-# Windows (per-user, no admin)
+# Windows (per-user, no admin) — the recommended design
 winget install -h Docker.sbx
 
-# Linux — Engine + sbx together
-curl -fsSL https://get.docker.com | sudo SBX=1 sh
+# Linux — Engine + sbx together (server-hosted alternative)
+curl -fsSL https://get.docker.com -o get-docker.sh   # read it before running it
+sudo SBX=1 sh get-docker.sh
 
 # Linux — sbx only (no host Engine)
-curl -fsSL https://get.docker.com | sudo REPO_ONLY=1 sh
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo REPO_ONLY=1 sh get-docker.sh
 sudo apt install docker-sbx
+
+# macOS (developer machines outside this rollout)
+brew trust docker/tap && brew install docker/tap/sbx
 ```
+
+Downloading the script first, instead of piping `curl` into a root shell, lets you review it and
+keep a copy in your change record.
 
 ### Sign in
 
@@ -96,14 +113,18 @@ sudo apt install docker-sbx
 sbx login
 ```
 
-Requires a Docker account (each developer uses their own). On headless Linux there is no desktop
-keyring, so secrets fall back to a `0700` file under `~/.config/com.docker.sandboxes`; the CLI prints
-a notice.
+Requires a Docker account. On headless Linux there is no desktop keyring, so secrets fall back to a
+`0700` file under `~/.config/com.docker.sandboxes`; the CLI prints a notice.
+
+Each developer signs in with a Docker account created with their **company email address**; no shared
+or personal accounts. (If you later want sign-in enforced centrally, that is part of the paid
+governance tier in [09](09-security-and-guardrails.md#governance-optional-paid).)
 
 ## First-run network preset
 
-On first run, choose a default network policy — pick **Balanced** (deny by default, common dev sites
-allowed). Adjust later with `sbx policy`.
+On first run, choose a default network policy — pick **Locked Down** so that
+[`config/allowlist.sh`](config/allowlist.sh) is the complete, reviewable list of what a sandbox can
+reach (rationale in [06](06-networking-and-policy.md#deny-by-default)). Adjust later with `sbx policy`.
 
 ## Next
 

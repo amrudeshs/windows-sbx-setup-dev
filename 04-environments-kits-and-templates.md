@@ -70,7 +70,7 @@ sandboxOptions:
   skills: off
 secrets:
   anthropic:
-    command: cat ~/.anthropic-key
+    command: <command that prints the key, e.g. from your OS credential manager>
 ports:
   - sandbox: 3000
     host: 3000
@@ -101,7 +101,9 @@ Notes:
 - Workspace/kits/ports/secrets/sandboxOptions changes apply only on next **creation** — `sbx env rm`
   then recreate.
 
-A ready-to-use example lives at [`config/sbxenv.yaml`](config/sbxenv.yaml).
+A ready-to-use example lives at [`config/sbxenv.yaml`](config/sbxenv.yaml). Don't keep keys in a
+plaintext file such as `~/.anthropic-key`; prefer `sbx secret set <provider>` (see
+[09 — Secrets](09-security-and-guardrails.md#secrets)).
 
 ### Environment file fields (top level)
 

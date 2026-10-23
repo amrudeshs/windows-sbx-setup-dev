@@ -4,8 +4,10 @@ Back to [README](README.md) · Prev: [07-windows-and-admin.md](07-windows-and-ad
 
 ## Verdict
 
-There **is** real overhead, so it is not identical to native development — but for typical
-coding/agent workloads it is usually close enough that you won't notice. Docker's docs:
+There **is** real overhead, so it is not identical to native development. CPU-bound work should be
+close to native because it runs under hardware virtualization; host-mounted file I/O is where it
+differs. **This repo contains no measurements**, so treat the statements below as expectations to
+verify with the benchmark at the end, not as results. Docker's docs:
 
 > Sandboxes trade **higher resource overhead (a VM plus its own daemon)** for complete isolation.
 
@@ -53,15 +55,32 @@ coding/agent workloads it is usually close enough that you won't notice. Docker'
 
 | Compared with | Result |
 | --- | --- |
-| Native Linux dev | Slightly slower on host-mounted file I/O; near-identical on CPU/builds. Smallest gap on a Linux host (native KVM). |
-| WSL2 | Same class of virtualization; `sbx` adds a second boundary (VM + its own daemon), a bit heavier but far more isolated. |
-| Docker Desktop | Usually similar or better for Linux containers, and much better isolated. |
+| Native Linux dev | Expected: slower on host-mounted file I/O, close on CPU/builds. Smallest gap on a Linux host (native KVM). |
+| WSL2 | Same class of virtualization; `sbx` adds a second boundary (VM + its own daemon), so expect somewhat more overhead for much stronger isolation. |
+| Docker Desktop | Expected to be in the same range for Linux containers, with stronger isolation. Unmeasured here. |
+
+## Laptop sizing
+
+Each sandbox reserves `sandboxOptions.memory` (8g in the example) plus its Docker volume (10 GB
+disk by default). Budget: **sum of sandbox memory + about 4 GB for Windows and the editor must fit in
+laptop RAM**, so a 16 GB laptop fits one 8g sandbox comfortably and two only with smaller limits.
+Set `cpus` explicitly too; `0` means all host CPUs.
 
 ## Rollout advice
 
-Benchmark one representative project on one laptop — run `npm ci`, a full build, and the test suite
-both natively and inside a sandbox. That tells you more than any general figure. Then apply the
-"generated dirs on the sandbox disk" pattern and re-measure.
+Benchmark one representative project on one laptop. Record these three timings in each environment,
+run three times each, and compare medians:
+
+| Step | Native (your current setup) | Inside the sandbox, source on the host mount | Inside the sandbox, deps on the sandbox disk |
+| --- | --- | --- | --- |
+| Dependency install (`npm ci`, `pip install -r ...`) | | | |
+| Full build | | | |
+| Test suite | | | |
+
+Run the sandbox commands from `sbx exec -it <sandbox> bash`, with `time` in front. The third column
+is the "generated dirs on the sandbox disk" pattern from above. Discard the first run in each new
+sandbox (cold caches). If column three is not acceptably close to your baseline, raise it
+before rollout.
 
 ## Next
 

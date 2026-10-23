@@ -21,13 +21,16 @@ and read/write access to its filesystem plus any mounted workspace.
 
 ## Isolation layers
 
+(This is the canonical list; other docs link here instead of repeating it.)
+
 1. **Hypervisor isolation** — separate kernel per sandbox; no shared memory or processes with the host.
 2. **Network isolation** — outbound TCP is proxied through the host and governed by a
    deny-by-default policy; UDP is off unless enabled; ICMP is blocked.
 3. **Docker Engine isolation** — each sandbox has its own engine; the host daemon is unreachable.
 4. **Workspace isolation** — mountless, clone mode, or direct mount (your choice).
 5. **Credential isolation** — API keys are injected into HTTP headers by the host-side proxy; raw
-   values never enter the VM.
+   values never enter the VM. This applies to **HTTP credentials only**: a value the sandbox must use
+   over another protocol (e.g. a Postgres password) has to exist inside the VM.
 
 ### Blocked by default (not configurable)
 
@@ -75,6 +78,18 @@ You can start from any Linux image if it meets the contract:
   across stop/start**.
 - `sbx rm` deletes the sandbox and all of its contents.
 - A **directly mounted workspace lives on the host** and is not deleted with the sandbox.
+- In [clone mode](03-workspaces.md#clone-mode-read-only-source--private-clone) the working tree is a
+  clone **inside** the VM: commits survive stop/start but are lost on `sbx rm` unless they were
+  pushed, or fetched on the host with `git fetch sandbox-<name>` (which only works while the sandbox
+  is running).
+- The agent's **conversation history lives inside the sandbox** (in the agent's home directory), so
+  it survives stop/start and can be resumed, and is deleted with `sbx rm`. See
+  [10 §G](10-runbook-and-examples.md#g-resuming-work-in-an-existing-sandbox).
+- Tools installed inside (apt packages, npm installs, MCP servers registered in the agent's user
+  config) persist with the sandbox's filesystem. Temporary directories such as `/tmp` should be
+  treated as disposable.
+- A **new** agent session starts with no memory of earlier ones unless you resume. Keep durable
+  decisions in the repo (these docs), not only in a conversation.
 
 ## Comparison to alternatives
 

@@ -23,8 +23,13 @@ On first run, `sbx` asks you to pick a **global preset**:
 | Preset | Behaviour |
 | --- | --- |
 | Open | All traffic allowed |
-| **Balanced** | Default deny, common dev sites allowed (recommended start) |
-| Locked Down | Everything blocked until explicitly allowed |
+| Balanced | Default deny, but a set of "common dev sites" that this repo does not enumerate is allowed |
+| **Locked Down** | Everything blocked until explicitly allowed (**recommended for this team**) |
+
+Why Locked Down: this repo promises consistent, auditable egress. With Balanced, the real allowed
+set is whatever Docker ships in that preset, so `allowlist.sh` is not the complete list and cannot be
+reviewed on its own. With Locked Down, `config/allowlist.sh` is the whole story. Choose Balanced
+only if you accept that, and check what it allows with `sbx policy ls`.
 
 ## Host services from a sandbox
 
@@ -58,21 +63,34 @@ sbx policy allow network localhost:11434
 | Shared DB | `sbx policy allow network <db-host>:5432` |
 | Local model (if used) | `sbx policy allow network localhost:11434` |
 
-A ready-to-run script lives at [`config/allowlist.sh`](config/allowlist.sh):
+A ready-to-run script lives at [`config/allowlist.sh`](config/allowlist.sh). It takes the DB host
+and the model provider(s) you actually use, so nothing is allowed by default that you didn't ask for:
 
 ```sh
-sh config/allowlist.sh 10.0.0.5
+sh config/allowlist.sh 10.0.0.5 anthropic
+sh config/allowlist.sh 10.0.0.5 anthropic,opencode -- repo.maven.apache.org:443   # extra hosts
+WITH_APT=1 sh config/allowlist.sh 10.0.0.5 anthropic                              # apt mirrors
 ```
+
+What it allows beyond the provider and DB: language registries, Docker registries (needed for
+`docker compose` build/pull inside the sandbox), and GitHub hosts. Add your own stack's registries
+(Maven, NuGet, a private registry) after `--`.
+
+> **Unverified:** whether `sbx policy allow` rules apply to every sandbox on the laptop or only the
+> current one. Check with `sbx policy ls` and `sbx policy allow --help` on your installed version
+> before assuming per-project isolation of egress.
+
+Allowing `github.com` also allows pushing data to any repository or gist there. See
+[09-security-and-guardrails.md](09-security-and-guardrails.md#prompt-injection-and-exfiltration).
 
 Bake standard rules into a **kit** to give the whole team the same egress automatically
 (see [04-environments-kits-and-templates.md](04-environments-kits-and-templates.md)).
 
 ## Governance (optional)
 
-Organization admins can centrally manage network, filesystem, and MCP policies across all local
-sandboxes, plus sign-in enforcement and audit logs. This is a **separate paid subscription**.
-When org governance is active, only org allow rules grant access; local allow rules are ignored
-(local deny rules still apply).
+Organization admins can centrally manage network policy (and more) across all sandboxes. When
+active, only org allow rules grant access and local allow rules are ignored. Details and the
+paid-tier note live in [09-security-and-guardrails.md](09-security-and-guardrails.md#governance-optional-paid).
 
 ## Upstream / corporate proxies
 
@@ -86,6 +104,8 @@ sbx daemon restart
 ```
 
 Proxy exclusions do **not** grant network access — policy still applies.
+
+If something is blocked or unreachable, see [11-troubleshooting.md](11-troubleshooting.md).
 
 ## Next
 

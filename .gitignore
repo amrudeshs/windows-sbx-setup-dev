@@ -1,0 +1,8 @@
+# Never commit TLS material or filled-in credentials
+config/certs/
+*.key
+*.pem
+*.dump
+*.sql.gz
+*.cer
+*.crt

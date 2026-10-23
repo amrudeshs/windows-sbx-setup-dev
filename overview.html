@@ -73,6 +73,11 @@
     background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px;
   }
   .diagram svg { width: 100%; height: auto; display: block; }
+  .diagram svg.tall { display: none; }
+  @media (max-width: 640px) {
+    .diagram svg.wide { display: none; }
+    .diagram svg.tall { display: block; max-width: 360px; margin: 0 auto; }
+  }
   .diagram .box { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
   .diagram .vm { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
   .diagram .srv { fill: var(--surface); stroke: var(--ok); stroke-width: 1.5; }
@@ -133,7 +138,7 @@ database on the server.</p>
 
 <div class="diagram" role="img"
      aria-label="Two developer laptops, each containing a sandbox with its own Docker daemon, Compose stack and agent, connect over the LAN with TLS to a shared Postgres 18 on the on-prem Linux server.">
-<svg viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<svg class="wide" viewBox="0 0 760 330" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
       <path d="M0 0 L10 5 L0 10 z" class="arrow"/>
@@ -165,7 +170,42 @@ database on the server.</p>
 
   <path class="link" d="M340 97 C 410 97, 410 140, 466 150" marker-end="url(#arr)"/>
   <path class="link" d="M340 259 C 410 259, 410 190, 466 180" marker-end="url(#arr)"/>
-  <text class="small" x="372" y="190" text-anchor="middle">LAN, port 5432</text>
+  <text class="small" x="396" y="170" text-anchor="middle">LAN, port 5432</text>
+</svg>
+
+<svg class="tall" viewBox="0 0 340 472" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" class="arrow"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="10" y="10" width="290" height="128" rx="10"/>
+  <text class="title" x="24" y="32">Developer laptop A (Windows 11)</text>
+  <rect class="vm" x="22" y="44" width="266" height="82" rx="8"/>
+  <text class="title" x="34" y="64">Linux sandbox (microVM)</text>
+  <text class="small" x="34" y="84">• agent (OpenCode)</text>
+  <text class="small" x="34" y="102">• own Docker daemon + Compose stack</text>
+  <text class="small" x="34" y="120">• project files mounted from laptop</text>
+
+  <rect class="box" x="10" y="150" width="290" height="128" rx="10"/>
+  <text class="title" x="24" y="172">Developer laptop B (Windows 11)</text>
+  <rect class="vm" x="22" y="184" width="266" height="82" rx="8"/>
+  <text class="title" x="34" y="204">Linux sandbox (microVM)</text>
+  <text class="small" x="34" y="224">• agent (OpenCode)</text>
+  <text class="small" x="34" y="242">• own Docker daemon + Compose stack</text>
+  <text class="small" x="34" y="260">• project files mounted from laptop</text>
+
+  <path class="link" d="M300 74 H322 V330" marker-end="url(#arr2)"/>
+  <path class="link" d="M300 214 H322"/>
+  <text class="small" x="312" y="310" text-anchor="end">LAN, port 5432</text>
+
+  <rect class="srv" x="10" y="332" width="320" height="130" rx="10"/>
+  <text class="title" x="24" y="356">On-prem Linux server</text>
+  <text class="small" x="24" y="380">• Postgres 18 in Docker (host engine)</text>
+  <text class="small" x="24" y="398">• one database + role per developer</text>
+  <text class="small" x="24" y="416">• TLS, only the developer subnet</text>
+  <text class="small" x="24" y="434">• no developer accounts on the server</text>
 </svg>
 </div>
 <p class="more" style="margin-top:10px">Detail: <a href="01-architecture.md">architecture</a> ·

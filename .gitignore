@@ -4,3 +4,5 @@ config/certs/
 *.pem
 *.dump
 *.sql.gz
+*.cer
+*.crt

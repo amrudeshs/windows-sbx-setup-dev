@@ -59,11 +59,15 @@ The shared Postgres runs on the **on-prem Linux server**, not on the laptop. Tha
 sbx policy allow network 10.0.0.5:5432
 ```
 
-Then point the Compose app at `10.0.0.5:5432` (or a DNS name the sandbox proxy can resolve).
+Then point the Compose app at `10.0.0.5:5432` (or a DNS name the sandbox proxy can resolve) with
+`sslmode=verify-full`, as in [`config/sbxenv.yaml`](config/sbxenv.yaml).
 
 Outbound TCP from containers inside the sandbox egresses through the sandbox proxy, so the allow
 rule is what makes it work. **Test this path early** — it is the only cross-boundary connection in
-the design.
+the design. Whether the proxy forwards raw (non-HTTP) TCP such as the Postgres protocol is assumed
+here, not demonstrated; the test in [11-troubleshooting.md](11-troubleshooting.md#the-database-is-unreachable)
+settles it for your `sbx` version. If it fails, the fallback is the server-hosted alternative in
+[01](01-architecture.md#the-alternatives).
 
 ### Local model servers (e.g. Ollama on the laptop)
 
@@ -92,8 +96,12 @@ This keeps the slow filesystem-passthrough path limited to source files.
 The DB is the only shared component, so protect it:
 
 - **One database + role per developer** on the shared Postgres; no shared superuser.
-- **Connection limits** and resource caps on Postgres.
-- Per-developer credentials; prefer `sbx secret set` so values never enter a sandbox.
+  [`provision-developer.sql`](config/provision-developer.sql) does this and revokes `PUBLIC` access.
+- **Connection limits**, statement/idle timeouts and resource caps on Postgres.
+- **TLS + SCRAM + subnet restriction** ([`pg_hba.conf`](config/postgres/pg_hba.conf)).
+- Per-developer credentials. `sbx secret` cannot hold a Postgres password (it only injects HTTP
+  headers), so the password is visible inside the sandbox; the isolated, low-privilege role is
+  what limits the damage ([09](09-security-and-guardrails.md#secrets)).
 
 Sample Compose for the shared DB: [`config/shared-db.compose.yaml`](config/shared-db.compose.yaml).
 Per-developer setup SQL: [10-runbook-and-examples.md](10-runbook-and-examples.md).

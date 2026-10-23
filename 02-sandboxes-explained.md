@@ -21,13 +21,16 @@ and read/write access to its filesystem plus any mounted workspace.
 
 ## Isolation layers
 
+(This is the canonical list; other docs link here instead of repeating it.)
+
 1. **Hypervisor isolation** — separate kernel per sandbox; no shared memory or processes with the host.
 2. **Network isolation** — outbound TCP is proxied through the host and governed by a
    deny-by-default policy; UDP is off unless enabled; ICMP is blocked.
 3. **Docker Engine isolation** — each sandbox has its own engine; the host daemon is unreachable.
 4. **Workspace isolation** — mountless, clone mode, or direct mount (your choice).
 5. **Credential isolation** — API keys are injected into HTTP headers by the host-side proxy; raw
-   values never enter the VM.
+   values never enter the VM. This applies to **HTTP credentials only**: a value the sandbox must use
+   over another protocol (e.g. a Postgres password) has to exist inside the VM.
 
 ### Blocked by default (not configurable)
 

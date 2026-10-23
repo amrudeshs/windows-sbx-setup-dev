@@ -1,89 +1,117 @@
 # 10 — Runbook and Examples
 
-Back to [README](README.md) · Prev: [09-security-and-guardrails.md](09-security-and-guardrails.md)
+Back to [README](README.md) · Prev: [09-security-and-guardrails.md](09-security-and-guardrails.md) · Next: [11-troubleshooting.md](11-troubleshooting.md)
 
 Copy-paste material for rolling this out. The ready-to-use files are in [`config/`](config/). Verify
-`sbx` flags against your installed version with `sbx <cmd> --help`.
+`sbx` flags against your installed version with `sbx <cmd> --help`. The quick-start steps (laptop
+setup, per-project environment, network policy) are in the [README](README.md#how-to-use-it) and
+are not repeated here.
 
 ---
 
 ## A. Developer laptop onboarding checklist (Windows 11)
 
-- [ ] IT: enable `HypervisorPlatform` once per machine (elevated, reboot).
+- [ ] IT: enable `HypervisorPlatform` once per machine (elevated, reboot) —
+  [07](07-windows-and-admin.md).
 - [ ] Developer: install `sbx` per-user:
   ```powershell
   winget install -h Docker.sbx
   ```
-- [ ] `sbx login` (Docker account; each developer uses their own).
-- [ ] First run: choose the **Balanced** network preset.
+- [ ] `sbx login` (see the Docker account question in [07](07-windows-and-admin.md#sign-in)).
+- [ ] First run: choose the **Locked Down** network preset.
 - [ ] Store the model-provider credential:
   ```sh
   sbx secret set anthropic      # or openai / openrouter / google / xai
   ```
+- [ ] Receive the DB credential and CA certificate from ops (never over chat or email in clear).
 - [ ] Clone the project onto the laptop.
-- [ ] Apply the network policy and run the agent:
+- [ ] Apply the network policy, then test the DB path ([11](11-troubleshooting.md)):
   ```sh
-  sh config/allowlist.sh 10.0.0.5
+  sh config/allowlist.sh 10.0.0.5 anthropic
   sbx run opencode
   ```
 
 ## B. Shared Postgres on the Linux server
 
-[`config/shared-db.compose.yaml`](config/shared-db.compose.yaml):
+Ops-managed, on the **host Docker Engine** — never inside a sandbox (sandboxes cannot reach each
+other).
+
+### One-time server prerequisites
+
+1. **TLS certificate** for the server name or IP developers connect to, with a CA developers can
+   trust. For a quick internal setup:
+   ```sh
+   mkdir -p config/certs && cd config/certs
+   openssl req -new -x509 -days 825 -nodes -subj "/CN=<db-host>" \
+     -addext "subjectAltName=IP:<db-host>" -keyout server.key -out server.crt
+   sudo chown 999:999 server.key server.crt && sudo chmod 600 server.key
+   ```
+   Distribute `server.crt` (or your CA's root) to developers as `shared-db-ca.crt`. With a
+   self-signed certificate, that file *is* the CA. Plan renewal before expiry.
+2. **`config/postgres/pg_hba.conf`**: set the CIDR to the developer subnet.
+3. **Host firewall**: allow 5432 only from that subnet (Docker publishes ports ahead of `ufw`
+   INPUT rules, so also keep `DB_BIND_ADDR` on the LAN IP rather than `0.0.0.0`).
+
+### Start it
 
 ```sh
 cd config
-POSTGRES_PASSWORD=<strong-secret> docker compose -f shared-db.compose.yaml up -d
+export POSTGRES_PASSWORD=<strong-secret>   # ops only
+export DB_BIND_ADDR=<server-lan-ip>
+docker compose -f shared-db.compose.yaml up -d
+docker compose -f shared-db.compose.yaml ps        # wait for "healthy"
+docker exec -i shared-postgres psql -U postgres -v ON_ERROR_STOP=1 < db-baseline.sql   # once
 ```
 
-> Keep this container on the **host Docker Engine**, managed by ops. Do not put it in a sandbox —
-> sandboxes cannot reach each other.
-
-### Per-developer database and role
-
-Run once per developer against the shared Postgres:
-
-```sql
-CREATE ROLE alice LOGIN PASSWORD 'alice-strong-password'
-  CONNECTION LIMIT 20;
-CREATE DATABASE alice_app OWNER alice;
-```
-
-Each developer points their app at `alice_app` on `<db-host>:5432` and never gets superuser.
-
-## C. Per project: use the environment file
-
-Copy [`config/sbxenv.yaml`](config/sbxenv.yaml) into a folder **beside** the project (not inside a
-mounted workspace), edit the name, DB URL, and ports, then:
+### Provision a developer
 
 ```sh
-sbx env plan          # preview
-sbx env run           # create + attach
+PW="$(openssl rand -base64 24)"
+docker exec -i shared-postgres psql -U postgres -v ON_ERROR_STOP=1 \
+  -v dev=alice -v pw="$PW" < provision-developer.sql
+echo "$PW"      # hand to the developer once, through a password manager
 ```
 
-Day-to-day:
+The developer's connection string is
+`postgres://alice:<pw>@<db-host>:5432/alice_app?sslmode=verify-full&sslrootcert=<path-to-ca>`.
+Rotate: `ALTER ROLE alice PASSWORD '<new>';`.
+
+### Offboard a developer
 
 ```sh
-sbx env run                       # reattach / restart the environment
-sbx exec -it <sandbox> bash       # shell inside the sandbox
-sbx ports <sandbox> --publish 8080:3000
-sbx env rm                        # destroy when done
+docker exec shared-postgres pg_dump -U postgres -Fc alice_app > alice_app.dump   # if needed
+docker exec -i shared-postgres psql -U postgres -v ON_ERROR_STOP=1 \
+  -v dev=alice < deprovision-developer.sql
 ```
 
-## D. Policy rules (network)
+### Back up
+
+The shared DB is the one shared failure domain, so back it up and test the restore:
 
 ```sh
-sh config/allowlist.sh 10.0.0.5
-sbx policy ls
+# nightly, from cron on the server
+docker exec shared-postgres pg_dumpall -U postgres | gzip > /backups/shared-pg-$(date +%F).sql.gz
+
+# restore test (into a scratch container, not production)
+gunzip -c /backups/shared-pg-<date>.sql.gz | docker exec -i <scratch-container> psql -U postgres
 ```
 
-## E. Common commands cheat sheet
+Keep backups off the same disk, apply retention, and restrict who can read them (they contain every
+developer's data and password hashes).
+
+## C. Per project
+
+Environment file and day-to-day commands: [README step 3](README.md#3-per-project-copy-the-environment-file).
+Config details: [04](04-environments-kits-and-templates.md).
+
+## D. Common commands cheat sheet
 
 ```sh
 # Lifecycle
 sbx run opencode ~/my-project          # create + attach
 sbx run --name feature opencode ~/proj # named sandbox
 sbx run --name feature                 # reattach by name
+sbx run --clone opencode ~/my-project  # private clone; host tree untouched
 sbx create --name scratch opencode     # create without attaching
 sbx ls                                 # list sandboxes
 sbx stop my-sandbox
@@ -108,20 +136,26 @@ sbx env plan | run | create | exec | rm
 sbx template save my-sandbox my-template:v1
 sbx run -t my-template:v1 opencode
 
-# Settings
+# Policy and settings
+sbx policy ls
 sbx settings list
 sbx settings set sandbox.disk.dockerVolume 30g
 sbx daemon restart
 ```
 
-## F. Server-hosted `sbx` (alternative)
+## E. Server-hosted `sbx` (alternative, not recommended here)
+
+Use only if laptops cannot get the one-time admin action ([01](01-architecture.md#the-alternatives)).
+Developers then need accounts on the server, so the *server-hosted only* guardrails in
+[09](09-security-and-guardrails.md#guardrails-to-add-on-top) apply.
 
 Server setup (ops, once):
 
 ```sh
 # Ubuntu 24.04+
 lsmod | grep kvm                       # confirm KVM
-sudo curl -fsSL https://get.docker.com | sudo SBX=1 sh
+curl -fsSL https://get.docker.com -o get-docker.sh   # review it first
+sudo SBX=1 sh get-docker.sh
 sudo usermod -aG kvm alice             # per developer
 ```
 
@@ -136,9 +170,10 @@ sbx run opencode
 ```
 
 Editing: VS Code **Remote-SSH** to the server on the project directory (the same directory the
-sandbox mounts read-write), and run the agent in a terminal. Direct mount means edits are live.
+sandbox mounts read-write); run the agent in a terminal. This workflow applies **only** to this
+alternative — in the recommended design files live on the laptop.
 
-## G. Cleanup / disk
+## F. Cleanup / disk
 
 ```sh
 sbx stop my-sandbox
@@ -153,25 +188,21 @@ sbx template ls && sbx template rm <name>
 ## Appendix: local model servers (Ollama)
 
 If a developer runs a model server **on the same machine as `sbx`** (e.g. Ollama on the laptop), that
-machine *is* the sandbox host, so `host.docker.internal` is correct.
-
-On the host:
-
-```sh
-OLLAMA_HOST=0.0.0.0 ollama serve
-```
-
-Allow the port:
+machine *is* the sandbox host, so `host.docker.internal` is correct. The proxy translates it to
+`localhost`, so Ollama can stay on its default loopback address:
 
 ```sh
+ollama serve                                   # default: listens on 127.0.0.1 only
 sbx policy allow network localhost:11434
 ```
 
-OpenCode config — see [`config/opencode.json`](config/opencode.json) — points at the host model:
+Do **not** set `OLLAMA_HOST=0.0.0.0`: that exposes an unauthenticated model server to the whole
+network, and the sandbox does not need it. If a sandbox cannot reach a loopback-only server on your
+`sbx` version, bind to the specific interface it needs and firewall it instead.
 
-```sh
-sbx run opencode
-```
+[`config/opencode.json`](config/opencode.json) points OpenCode at the host model. The two models
+listed are **examples**; replace them with whatever your team has tested for agentic coding (very
+small reasoning models such as `deepseek-r1:1.5b` are poor at it).
 
 This is the **local-host** case only. For the team's **shared DB on the server**, remember it is
 remote — allow `<server>:5432`, not `host.docker.internal`.

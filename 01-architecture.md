@@ -46,7 +46,7 @@ Key properties:
 
 | # | Requirement | How it is met |
 | --- | --- | --- |
-| 1 | Windows devs + on-prem Linux server | Devs only need a terminal/editor; the Linux work happens in the microVM and on the server. |
+| 1 | Windows devs + on-prem Linux server | Devs only need a terminal/editor on the laptop; the Linux work happens in the microVM, and the server hosts the shared DB. |
 | 2 | Common DB container on the Linux box | Postgres runs under the host Docker Engine; sandboxes reach it over LAN via `sbx policy allow network <host>:5432`. |
 | 3 | Own `docker compose`, independent | Each sandbox has a private Docker daemon, so Compose runs untouched and isolated. |
 | 4 | One engineer can't break the machine | MicroVM boundary: no host FS outside mounts, no host Docker, deny-by-default network. |
@@ -56,9 +56,10 @@ Key properties:
 
 ### Server-hosted `sbx`
 
-Install `sbx` on the server, create one Linux account per developer, and have each developer SSH in
-and run `sbx run opencode` in their project directory. Requirements: Ubuntu 24.04+, KVM enabled,
-users in the `kvm` group. All elevated work is a one-time action by ops.
+**Not part of the recommended setup.** Install `sbx` on the server, create one Linux account per
+developer, and have each developer SSH in and run `sbx run opencode` in their project directory.
+Editing then happens over Remote-SSH on files that live on the server. Requirements: Ubuntu 24.04+,
+KVM enabled, users in the `kvm` group. All elevated work is a one-time action by ops.
 
 Use it when laptops cannot get the one-time admin needed to enable the Windows sandbox runtime, when
 you want all compute centralised, or when the Compose stack must literally run on the server.
@@ -86,9 +87,14 @@ design it lives **outside sandboxes**, on the server's host Docker Engine:
 
 - Give each developer their **own database and role** (not a shared superuser).
 - Set **connection limits** and resource caps on Postgres.
-- Keep credentials per-developer; prefer `sbx secret set` so values never enter a sandbox.
+- Keep credentials per-developer. Note that `sbx secret` only injects HTTP headers, so it protects
+  model-provider keys but **not** the Postgres password, which must exist inside the sandbox. See
+  [09 — Secrets](09-security-and-guardrails.md#secrets).
+- Require TLS and restrict connections to the developer subnet (`config/postgres/pg_hba.conf`).
 
-See [`config/shared-db.compose.yaml`](config/shared-db.compose.yaml) for the server Compose file.
+See [`config/shared-db.compose.yaml`](config/shared-db.compose.yaml) for the server Compose file and
+[10-runbook-and-examples.md](10-runbook-and-examples.md#b-shared-postgres-on-the-linux-server) for setup,
+backups and offboarding.
 
 ## What to avoid
 

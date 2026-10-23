@@ -11,14 +11,25 @@ workspace: ./app
 
 env:
   NODE_ENV: development
-  # Remote shared DB on the on-prem Linux server.
-  # Replace host, password, role and database with your developer's values.
-  DATABASE_URL: postgres://alice:alice-strong-password@10.0.0.5:5432/alice_app
+  # Shared DB on the on-prem Linux server.
+  #
+  # Values under `env:` are READABLE INSIDE THE SANDBOX (by you, by the agent, and by anything
+  # the agent runs). `sbx secret` only injects HTTP headers, so it cannot protect a Postgres
+  # password. Treat this credential as exposed to the agent and limit the blast radius instead:
+  #   - use the per-developer, non-superuser role created by config/provision-developer.sql
+  #   - require TLS (sslmode=verify-full) so the password never crosses the LAN in cleartext
+  #   - never commit a filled-in copy of this file
+  # Replace <db-host>, <dev>, <dev-password>; the CA file is the one ops hands out.
+  DATABASE_URL: postgres://<dev>:<dev-password>@<db-host>:5432/<dev>_app?sslmode=verify-full&sslrootcert=/home/agent/shared-db-ca.crt
 
 sandboxOptions:
-  cpus: 4          # 0 = all host CPUs
-  memory: 8g
-  skills: readonly # off | readonly | readwrite
+  cpus: 4          # 0 = all host CPUs; do not leave at 0 on a shared laptop
+  memory: 8g       # budget: (sum of sandbox memory) + ~4g for Windows must fit in laptop RAM
+  skills: off      # off | readonly | readwrite. readonly is fine if you rely on shared skills.
+
+# Docker storage inside the sandbox defaults to 10g. Multi-service Compose stacks outgrow it;
+# set the larger default once per laptop (it is a setting, not an environment-file field):
+#   sbx settings set sandbox.disk.dockerVolume 30g
 
 ports:
   - sandbox: 3000

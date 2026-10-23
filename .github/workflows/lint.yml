@@ -1,0 +1,33 @@
+name: lint
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Markdown links and anchors
+        run: python3 scripts/check-links.py
+
+      - name: YAML
+        run: |
+          pip install yamllint==1.35.1
+          yamllint -c .yamllint config/sbxenv.yaml config/shared-db.compose.yaml .github
+
+      - name: Shell
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck config/allowlist.sh
+
+      - name: Compose file parses
+        run: |
+          POSTGRES_PASSWORD=ci DB_BIND_ADDR=127.0.0.1 \
+            docker compose -f config/shared-db.compose.yaml config -q
